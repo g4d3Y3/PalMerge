@@ -43,7 +43,12 @@ pub fn discover(path: &Path) -> Result<Vec<PathBuf>, PalError> {
     }
 
     let mut files = Vec::new();
-    for name in ["Level.sav", "LevelMeta.sav", "LocalData.sav", "WorldOption.sav"] {
+    for name in [
+        "Level.sav",
+        "LevelMeta.sav",
+        "LocalData.sav",
+        "WorldOption.sav",
+    ] {
         push_regular_file(&mut files, path.join(name));
     }
 
@@ -81,19 +86,21 @@ pub fn discover(path: &Path) -> Result<Vec<PathBuf>, PalError> {
 }
 
 fn push_regular_file(files: &mut Vec<PathBuf>, path: PathBuf) {
-    if path.symlink_metadata().is_ok_and(|metadata| metadata.file_type().is_file()) {
+    if path
+        .symlink_metadata()
+        .is_ok_and(|metadata| metadata.file_type().is_file())
+    {
         files.push(path);
     }
 }
 
 pub fn inspect(path: &Path) -> Result<Inspection, PalError> {
-    let mut file = File::open(path).map_err(|error| {
-        PalError::new(ErrorCode::Io, format!("{}: {error}", path.display()))
-    })?;
+    let mut file = File::open(path)
+        .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
     let mut magic = [0_u8; 4];
-    let count = file.read(&mut magic).map_err(|error| {
-        PalError::new(ErrorCode::Io, format!("{}: {error}", path.display()))
-    })?;
+    let count = file
+        .read(&mut magic)
+        .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
     let format = if count == magic.len() && &magic == b"GVAS" {
         SaveFormat::Gvas
     } else {
