@@ -1,0 +1,19 @@
+[package]
+name = "palmerge-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "palmerge"
+path = "src/main.rs"
+
+[dependencies]
+palmerge-core = { path = "../core" }
+palmerge-parser = { path = "../parser" }
+
+[lints]
+workspace = true
+

@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: target/x86_64-unknown-linux-gnu/release/palmerge
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: target/x86_64-pc-windows-msvc/release/palmerge.exe
+          - os: macos-14
+            target: aarch64-apple-darwin
+            binary: target/aarch64-apple-darwin/release/palmerge
+          - os: macos-13
+            target: x86_64-apple-darwin
+            binary: target/x86_64-apple-darwin/release/palmerge
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.77"
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: palmerge-${{ matrix.target }}
+          path: |
+            ${{ matrix.binary }}
+            README.md
+            README.zh-CN.md
+            LICENSE
+          if-no-files-found: error
