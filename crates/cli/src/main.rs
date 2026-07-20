@@ -179,6 +179,44 @@ fn print_text(locale: Locale, inspections: &[Inspection]) {
                 }
             );
         }
+        if let Some(gvas) = &inspection.gvas {
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::SaveGameVersion),
+                gvas.save_game_version
+            );
+            println!(
+                "{}: {} / {}",
+                message(locale, MessageKey::PackageVersion),
+                gvas.package_version.ue4,
+                gvas.package_version
+                    .ue5
+                    .map_or_else(|| "null".to_owned(), |value| value.to_string())
+            );
+            println!(
+                "{}: {}.{}.{} ({})",
+                message(locale, MessageKey::EngineVersion),
+                gvas.engine_version.major,
+                gvas.engine_version.minor,
+                gvas.engine_version.patch,
+                gvas.engine_version.build
+            );
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::EngineBranch),
+                gvas.engine_version.branch
+            );
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::CustomVersions),
+                gvas.custom_versions.len()
+            );
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::SaveGameClass),
+                gvas.save_game_class
+            );
+        }
     }
 }
 
@@ -220,10 +258,48 @@ fn inspection_json(value: &Inspection) -> String {
             )
         },
     );
+    let gvas = value.gvas.as_ref().map_or_else(
+        || "null".to_owned(),
+        |header| {
+            let ue5 = header
+                .package_version
+                .ue5
+                .map_or_else(|| "null".to_owned(), |version| version.to_string());
+            let custom_format = header
+                .custom_format_version
+                .map_or_else(|| "null".to_owned(), |version| version.to_string());
+            let custom_versions = header
+                .custom_versions
+                .iter()
+                .map(|version| {
+                    format!(
+                        "{{\"guid\":\"{}\",\"value\":{}}}",
+                        json_escape(&version.guid),
+                        version.value
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"save_game_version\":{},\"package_version\":{{\"ue4\":{},\"ue5\":{}}},\"engine_version\":{{\"major\":{},\"minor\":{},\"patch\":{},\"build\":{},\"branch\":\"{}\"}},\"custom_format_version\":{},\"custom_versions\":[{}],\"save_game_class\":\"{}\"}}",
+                header.save_game_version,
+                header.package_version.ue4,
+                ue5,
+                header.engine_version.major,
+                header.engine_version.minor,
+                header.engine_version.patch,
+                header.engine_version.build,
+                json_escape(&header.engine_version.branch),
+                custom_format,
+                custom_versions,
+                json_escape(&header.save_game_class)
+            )
+        },
+    );
     format!(
-        "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\",\"container\":{},\"decoded\":{}}}",
+        "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\",\"container\":{},\"decoded\":{},\"gvas\":{}}}",
         json_escape(&value.fingerprint.path.to_string_lossy()), value.fingerprint.size, modified,
-        value.fingerprint.sha256, value.format.as_str(), container, decoded
+        value.fingerprint.sha256, value.format.as_str(), container, decoded, gvas
     )
 }
 
