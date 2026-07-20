@@ -14,9 +14,14 @@ The common header is 12 bytes: little-endian uncompressed length, little-endian 
 
 Validation checks declared sizes, decompression errors, the configured output limit, and the embedded `GVAS` prefix. It never writes decoded data back to disk. / 校验会检查声明长度、解压错误、配置的输出上限和内嵌 `GVAS` 前缀，且不会把解压数据写回磁盘。
 
+## GVAS metadata / GVAS 元数据
+
+For raw GVAS and validated `PlZ` payloads, PalMerge parses only the bounded metadata prefix: save-game version, UE4/UE5 package versions, engine version and branch, up to 4,096 custom-version entries, and the SaveGame class string. Strings are limited to 65,536 code units and must be valid, null-terminated FString data. Truncated, oversized, or invalid metadata fails closed. Property-body parsing is not implemented yet. / 对原始 GVAS 和已验证的 `PlZ` 负载，PalMerge 只解析有边界的元数据前缀：存档版本、UE4/UE5 包版本、引擎版本与分支、最多 4,096 个自定义版本条目，以及 SaveGame 类字符串。字符串最多允许 65,536 个代码单元，且必须是有效、以空字符结尾的 FString 数据。截断、超限或无效元数据会被拒绝。属性正文解析尚未实现。
+
 ## Format references / 格式依据
 
 - [`cheahjs/palworld-save-tools` `palsav.py`](https://github.com/cheahjs/palworld-save-tools/blob/main/palworld_save_tools/palsav.py) documents `PlZ`, `CNK`, and save types `0x31`/`0x32`.
 - [`deafdudecomputers/PalworldSaveTools` repository instructions](https://github.com/deafdudecomputers/PalworldSaveTools/blob/main/AGENTS.md) record the newer `PlM`/Oodle distinction.
+- [`trumank/uesave` GVAS implementation](https://github.com/trumank/uesave/blob/1917a22ab69e9a4045e613d9d7f39a49fe00bd46/uesave/src/lib.rs) provides the version-aware Unreal SaveGame header layout used as an interoperability reference.
 
 These projects are implementation references, not runtime dependencies. / 这些项目仅作为格式实现依据，不是 PalMerge 的运行时依赖。
