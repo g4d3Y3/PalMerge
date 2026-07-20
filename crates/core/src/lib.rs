@@ -1,6 +1,6 @@
 //! Shared, dependency-free primitives for PalMerge.
 
-use std::fmt;
+use std::fmt::{self, Write as _};
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -233,10 +233,11 @@ impl Sha256 {
         self.buffer[56..64].copy_from_slice(&self.bit_len.to_be_bytes());
         let block = self.buffer;
         self.compress(&block);
-        self.state
-            .iter()
-            .map(|word| format!("{word:08x}"))
-            .collect()
+        let mut output = String::with_capacity(64);
+        for word in self.state {
+            write!(&mut output, "{word:08x}").expect("writing to a String cannot fail");
+        }
+        output
     }
 
     fn compress(&mut self, block: &[u8; 64]) {
