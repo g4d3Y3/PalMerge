@@ -32,12 +32,15 @@ Normal users should download the package for their operating system from [Releas
 
 Prebuilt packages will be attached to tagged releases for Windows x86-64, Linux x86-64, macOS Apple Silicon, and macOS Intel. Until the first tagged release exists, contributors can build from source as described below.
 
+Each release contains a self-contained platform archive plus `SHA256SUMS.txt`. After downloading, compare the archive's SHA-256 checksum before extracting it. Alpha versions are read-only inspection previews and must not be treated as save mergers.
+
 ## Inspect a save
 
 ```console
 palmerge inspect /path/to/Level.sav
 palmerge inspect /path/to/world-directory --lang zh-CN
 palmerge inspect /path/to/world-directory --format json
+palmerge --version
 ```
 
 The command reads, hashes, and validates supported zlib containers but never modifies them. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
