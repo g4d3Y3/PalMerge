@@ -120,11 +120,7 @@ pub fn inspect(path: &Path) -> Result<Inspection, PalError> {
         .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
     let container = read_header(path)?;
     let (format, decoded, gvas) = if count == magic.len() && &magic == b"GVAS" {
-        (
-            SaveFormat::Gvas,
-            None,
-            Some(read_gvas_header(path, None)?),
-        )
+        (SaveFormat::Gvas, None, Some(read_gvas_header(path, None)?))
     } else if let Some(header) = container {
         match header.kind {
             ContainerKind::Plz => {
