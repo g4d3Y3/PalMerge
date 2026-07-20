@@ -140,6 +140,34 @@ fn print_text(locale: Locale, inspections: &[Inspection]) {
             message(locale, MessageKey::Format),
             inspection.format.as_str()
         );
+        if let Some(container) = inspection.container {
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::Container),
+                container.kind.as_str()
+            );
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::Compression),
+                container.compression.as_str()
+            );
+        }
+        if let Some(decoded) = inspection.decoded {
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::DecodedSize),
+                decoded.decoded_len
+            );
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::EmbeddedFormat),
+                if decoded.embedded_gvas {
+                    "gvas"
+                } else {
+                    "unknown"
+                }
+            );
+        }
     }
 }
 
@@ -157,10 +185,34 @@ fn inspection_json(value: &Inspection) -> String {
         .fingerprint
         .modified_unix_seconds
         .map_or_else(|| "null".to_owned(), |time| time.to_string());
+    let container = value.container.map_or_else(
+        || "null".to_owned(),
+        |header| {
+            format!(
+                "{{\"kind\":\"{}\",\"compression\":\"{}\",\"save_type\":{},\"uncompressed_len\":{},\"compressed_len\":{},\"payload_offset\":{},\"chunk_wrapped\":{}}}",
+                header.kind.as_str(),
+                header.compression.as_str(),
+                header.save_type,
+                header.uncompressed_len,
+                header.compressed_len,
+                header.payload_offset,
+                header.chunk_wrapped
+            )
+        },
+    );
+    let decoded = value.decoded.map_or_else(
+        || "null".to_owned(),
+        |summary| {
+            format!(
+                "{{\"decoded_len\":{},\"embedded_gvas\":{}}}",
+                summary.decoded_len, summary.embedded_gvas
+            )
+        },
+    );
     format!(
-        "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\"}}",
+        "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\",\"container\":{},\"decoded\":{}}}",
         json_escape(&value.fingerprint.path.to_string_lossy()), value.fingerprint.size, modified,
-        value.fingerprint.sha256, value.format.as_str()
+        value.fingerprint.sha256, value.format.as_str(), container, decoded
     )
 }
 

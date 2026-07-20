@@ -11,13 +11,16 @@ The project direction and acceptance criteria are tracked in [Project Goal #1](h
 - Read-only discovery of `Level.sav`, `LevelMeta.sav`, `LocalData.sav`, `WorldOption.sav`, and direct `.sav` files under `Players/`.
 - Streaming SHA-256 fingerprints without external runtime dependencies.
 - Conservative GVAS magic detection. Unknown inputs remain `unknown`; they are never guessed.
+- Strict `PlZ` and `CNK` container-header parsing with single- and double-zlib validation.
+- Streaming decompression checks with declared-length validation and a 2 GiB safety limit; decoded saves are not retained in memory.
+- Detection of newer `PlM`/Oodle containers as explicitly unsupported instead of treating them as zlib.
 - Human-readable English and Simplified Chinese output.
 - Stable, language-independent JSON inspection output.
 - Deterministic ordering and explicit resource limits during discovery.
 
 ## Not implemented yet
 
-- Full Palworld container decompression and GVAS property parsing.
+- `PlM`/Oodle decompression and full GVAS property parsing.
 - Domain models, entity indexes, dependency graphs, and referential validation.
 - Migration, merge, repair, GUID rewriting, transactional writing, backup, rollback, or GUI workflows.
 
@@ -37,7 +40,7 @@ palmerge inspect /path/to/world-directory --lang zh-CN
 palmerge inspect /path/to/world-directory --format json
 ```
 
-The command reads and hashes files but never modifies them. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
+The command reads, hashes, and validates supported zlib containers but never modifies them. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
 
 ## Build from source
 
@@ -54,7 +57,7 @@ The executable is written to `target/release/palmerge` (`palmerge.exe` on Window
 ## Safety and privacy
 
 - Inspection is read-only.
-- Unknown formats are reported rather than guessed.
+- Unknown formats and unsupported `PlM` containers are reported rather than guessed.
 - Save data stays on the local computer; core functionality performs no uploads or telemetry.
 - Real private saves must not be committed as test fixtures.
 - Future write support will require dry run, explicit output, backup, isolated writes, re-parsing, validation, and recovery guidance before it is described as production-ready.
@@ -62,10 +65,10 @@ The executable is written to `target/release/palmerge` (`palmerge.exe` on Window
 ## Workspace
 
 - `palmerge-core`: stable errors, localization, fingerprints, and shared primitives.
-- `palmerge-parser`: bounded world discovery and conservative format probing.
+- `palmerge-parser`: bounded world discovery, conservative format probing, and resource-limited zlib container validation.
 - `palmerge-cli`: scriptable text and JSON inspection interface.
 
-The current crates intentionally use only the Rust standard library to keep builds portable and normal-user packages self-contained.
+The core and CLI crates use only the Rust standard library. The parser uses the pure-Rust `flate2` backend for zlib; normal-user binaries remain self-contained and require no external runtime or shared compression library.
 
 ## Contributing
 
@@ -74,4 +77,3 @@ Keep changes small and reviewable. Add tests, run formatting and Clippy, preserv
 ## License
 
 MIT
-

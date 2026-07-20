@@ -7,8 +7,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 palmerge-core = { path = "../core" }
 
 [lints]
 workspace = true
-

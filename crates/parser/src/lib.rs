@@ -1,5 +1,11 @@
 //! Read-only discovery and format probing.
 
+mod container;
+
+pub use container::{
+    parse_header, read_header, validate_plz, CompressionKind, ContainerHeader, ContainerKind,
+    DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
+};
 use palmerge_core::{fingerprint, ErrorCode, Fingerprint, PalError};
 use std::fs::{self, File};
 use std::io::Read;
@@ -10,6 +16,8 @@ const MAX_DISCOVERED_FILES: usize = 10_000;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SaveFormat {
     Gvas,
+    PalworldPlz,
+    PalworldPlm,
     Unknown,
 }
 
@@ -18,6 +26,8 @@ impl SaveFormat {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Gvas => "gvas",
+            Self::PalworldPlz => "palworld_plz",
+            Self::PalworldPlm => "palworld_plm",
             Self::Unknown => "unknown",
         }
     }
@@ -27,6 +37,8 @@ impl SaveFormat {
 pub struct Inspection {
     pub fingerprint: Fingerprint,
     pub format: SaveFormat,
+    pub container: Option<ContainerHeader>,
+    pub decoded: Option<DecodeSummary>,
 }
 
 /// Finds the known save files in a world directory without following links or
@@ -101,14 +113,25 @@ pub fn inspect(path: &Path) -> Result<Inspection, PalError> {
     let count = file
         .read(&mut magic)
         .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
-    let format = if count == magic.len() && &magic == b"GVAS" {
-        SaveFormat::Gvas
+    let container = read_header(path)?;
+    let (format, decoded) = if count == magic.len() && &magic == b"GVAS" {
+        (SaveFormat::Gvas, None)
+    } else if let Some(header) = container {
+        match header.kind {
+            ContainerKind::Plz => (
+                SaveFormat::PalworldPlz,
+                Some(validate_plz(path, header, DEFAULT_MAX_DECOMPRESSED_SIZE)?),
+            ),
+            ContainerKind::Plm => (SaveFormat::PalworldPlm, None),
+        }
     } else {
-        SaveFormat::Unknown
+        (SaveFormat::Unknown, None)
     };
     Ok(Inspection {
         fingerprint: fingerprint(path)?,
         format,
+        container,
+        decoded,
     })
 }
 
@@ -162,6 +185,7 @@ mod tests {
 
         let result = inspect(&path).unwrap();
         assert_eq!(result.format, SaveFormat::Gvas);
+        assert!(result.container.is_none());
         assert_eq!(fs::read(&path).unwrap(), b"GVASpayload");
         fs::remove_dir_all(root).unwrap();
     }
