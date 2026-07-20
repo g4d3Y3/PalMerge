@@ -8,7 +8,8 @@ This roadmap turns [Project Goal #1](https://github.com/g4d3Y3/PalMerge/issues/1
 - [x] Streaming SHA-256 fingerprints / 流式 SHA-256 指纹
 - [x] Conservative GVAS detection / 保守 GVAS 检测
 - [x] English, Simplified Chinese, and stable JSON output / 英文、简体中文和稳定 JSON 输出
-- [ ] Palworld container header parsing and decompression / Palworld 容器头解析与解压
+- [x] `PlZ`/`CNK` header parsing and resource-limited zlib validation / `PlZ`/`CNK` 容器头解析与受资源限制的 zlib 校验
+- [ ] `PlM`/Oodle decompression / `PlM`/Oodle 解压
 - [ ] Complete GVAS property parser with malformed-input limits / 带异常输入限制的完整 GVAS 属性解析器
 
 ## M2 — Models and validation / 模型与校验
