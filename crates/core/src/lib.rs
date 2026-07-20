@@ -1,6 +1,6 @@
 //! Shared, dependency-free primitives for PalMerge.
 
-use std::fmt;
+use std::fmt::{self, Write as _};
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -82,6 +82,10 @@ pub enum MessageKey {
     Sha256,
     Modified,
     Format,
+    Container,
+    Compression,
+    DecodedSize,
+    EmbeddedFormat,
     MissingPath,
     ReadFailed,
     UnknownFormat,
@@ -108,6 +112,14 @@ pub const fn message(locale: Locale, key: MessageKey) -> &'static str {
         (Locale::SimplifiedChinese, MessageKey::Modified) => "修改时间（Unix 秒）",
         (Locale::English, MessageKey::Format) => "Detected format",
         (Locale::SimplifiedChinese, MessageKey::Format) => "检测格式",
+        (Locale::English, MessageKey::Container) => "Container",
+        (Locale::SimplifiedChinese, MessageKey::Container) => "容器",
+        (Locale::English, MessageKey::Compression) => "Compression",
+        (Locale::SimplifiedChinese, MessageKey::Compression) => "压缩方式",
+        (Locale::English, MessageKey::DecodedSize) => "Validated decoded size",
+        (Locale::SimplifiedChinese, MessageKey::DecodedSize) => "已验证解压大小",
+        (Locale::English, MessageKey::EmbeddedFormat) => "Embedded format",
+        (Locale::SimplifiedChinese, MessageKey::EmbeddedFormat) => "内嵌格式",
         (Locale::English, MessageKey::MissingPath) => "the save path does not exist",
         (Locale::SimplifiedChinese, MessageKey::MissingPath) => "存档路径不存在",
         (Locale::English, MessageKey::ReadFailed) => "could not read the save",
@@ -233,10 +245,11 @@ impl Sha256 {
         self.buffer[56..64].copy_from_slice(&self.bit_len.to_be_bytes());
         let block = self.buffer;
         self.compress(&block);
-        self.state
-            .iter()
-            .map(|word| format!("{word:08x}"))
-            .collect()
+        let mut output = String::with_capacity(64);
+        for word in self.state {
+            write!(&mut output, "{word:08x}").expect("writing to a String cannot fail");
+        }
+        output
     }
 
     fn compress(&mut self, block: &[u8; 64]) {
