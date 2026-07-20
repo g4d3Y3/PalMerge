@@ -36,16 +36,29 @@ fn requested_locale(args: &[String]) -> Option<Locale> {
 }
 
 fn parse_options(args: &[String]) -> Result<Options, PalError> {
-    if args.first().is_some_and(|arg| arg == "--help" || arg == "-h") {
-        println!("{}", message(requested_locale(args).unwrap_or_default(), MessageKey::Usage));
+    if args
+        .first()
+        .is_some_and(|arg| arg == "--help" || arg == "-h")
+    {
+        println!(
+            "{}",
+            message(
+                requested_locale(args).unwrap_or_default(),
+                MessageKey::Usage
+            )
+        );
         std::process::exit(0);
     }
     if args.first().map(String::as_str) != Some("inspect") {
-        return Err(PalError::new(ErrorCode::InvalidArguments, "expected inspect command"));
+        return Err(PalError::new(
+            ErrorCode::InvalidArguments,
+            "expected inspect command",
+        ));
     }
-    let path = args.get(1).filter(|arg| !arg.starts_with('-')).ok_or_else(|| {
-        PalError::new(ErrorCode::InvalidArguments, "missing save path")
-    })?;
+    let path = args
+        .get(1)
+        .filter(|arg| !arg.starts_with('-'))
+        .ok_or_else(|| PalError::new(ErrorCode::InvalidArguments, "missing save path"))?;
     let mut locale = Locale::English;
     let mut output = OutputFormat::Text;
     let mut index = 2;
@@ -62,14 +75,28 @@ fn parse_options(args: &[String]) -> Result<Options, PalError> {
                 output = match args.get(index).map(String::as_str) {
                     Some("text") => OutputFormat::Text,
                     Some("json") => OutputFormat::Json,
-                    _ => return Err(PalError::new(ErrorCode::InvalidArguments, "format must be text or json")),
+                    _ => {
+                        return Err(PalError::new(
+                            ErrorCode::InvalidArguments,
+                            "format must be text or json",
+                        ))
+                    }
                 };
             }
-            value => return Err(PalError::new(ErrorCode::InvalidArguments, format!("unknown argument: {value}"))),
+            value => {
+                return Err(PalError::new(
+                    ErrorCode::InvalidArguments,
+                    format!("unknown argument: {value}"),
+                ))
+            }
         }
         index += 1;
     }
-    Ok(Options { path: PathBuf::from(path), locale, output })
+    Ok(Options {
+        path: PathBuf::from(path),
+        locale,
+        output,
+    })
 }
 
 fn run(options: Options) -> Result<(), PalError> {
@@ -85,21 +112,51 @@ fn print_text(locale: Locale, inspections: &[Inspection]) {
     println!("{}", message(locale, MessageKey::Inspecting));
     for inspection in inspections {
         println!();
-        println!("{}: {}", message(locale, MessageKey::File), inspection.fingerprint.path.display());
-        println!("{}: {}", message(locale, MessageKey::Size), inspection.fingerprint.size);
-        println!("{}: {}", message(locale, MessageKey::Sha256), inspection.fingerprint.sha256);
-        println!("{}: {}", message(locale, MessageKey::Modified), inspection.fingerprint.modified_unix_seconds.map_or_else(|| "null".to_owned(), |value| value.to_string()));
-        println!("{}: {}", message(locale, MessageKey::Format), inspection.format.as_str());
+        println!(
+            "{}: {}",
+            message(locale, MessageKey::File),
+            inspection.fingerprint.path.display()
+        );
+        println!(
+            "{}: {}",
+            message(locale, MessageKey::Size),
+            inspection.fingerprint.size
+        );
+        println!(
+            "{}: {}",
+            message(locale, MessageKey::Sha256),
+            inspection.fingerprint.sha256
+        );
+        println!(
+            "{}: {}",
+            message(locale, MessageKey::Modified),
+            inspection
+                .fingerprint
+                .modified_unix_seconds
+                .map_or_else(|| "null".to_owned(), |value| value.to_string())
+        );
+        println!(
+            "{}: {}",
+            message(locale, MessageKey::Format),
+            inspection.format.as_str()
+        );
     }
 }
 
 fn inspections_json(inspections: &[Inspection]) -> String {
-    let entries = inspections.iter().map(inspection_json).collect::<Vec<_>>().join(",");
+    let entries = inspections
+        .iter()
+        .map(inspection_json)
+        .collect::<Vec<_>>()
+        .join(",");
     format!("{{\"schema_version\":1,\"operation\":\"inspect\",\"read_only\":true,\"files\":[{entries}]}}")
 }
 
 fn inspection_json(value: &Inspection) -> String {
-    let modified = value.fingerprint.modified_unix_seconds.map_or_else(|| "null".to_owned(), |time| time.to_string());
+    let modified = value
+        .fingerprint
+        .modified_unix_seconds
+        .map_or_else(|| "null".to_owned(), |time| time.to_string());
     format!(
         "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\"}}",
         json_escape(&value.fingerprint.path.to_string_lossy()), value.fingerprint.size, modified,
@@ -108,7 +165,11 @@ fn inspection_json(value: &Inspection) -> String {
 }
 
 fn error_json(error: &PalError) -> String {
-    format!("{{\"schema_version\":1,\"code\":\"{}\",\"message\":\"{}\"}}", error.code.as_str(), json_escape(&error.message))
+    format!(
+        "{{\"schema_version\":1,\"code\":\"{}\",\"message\":\"{}\"}}",
+        error.code.as_str(),
+        json_escape(&error.message)
+    )
 }
 
 fn json_escape(value: &str) -> String {
@@ -138,8 +199,15 @@ mod tests {
 
     #[test]
     fn parses_chinese_json_options() {
-        let args = ["inspect", "Level.sav", "--lang", "zh-CN", "--format", "json"]
-            .map(str::to_owned);
+        let args = [
+            "inspect",
+            "Level.sav",
+            "--lang",
+            "zh-CN",
+            "--format",
+            "json",
+        ]
+        .map(str::to_owned);
         let options = parse_options(&args).unwrap();
         assert_eq!(options.locale, Locale::SimplifiedChinese);
         assert_eq!(options.output, OutputFormat::Json);
