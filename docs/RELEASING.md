@@ -11,7 +11,7 @@ PalMerge releases are built by GitHub Actions from an immutable version tag. Mai
 
 ## Publish / 发布
 
-Create a tag such as `v0.1.0-alpha.1` on the verified `main` commit and push it. The workflow builds four portable packages, adds both README files and the license, produces `SHA256SUMS.txt`, and creates a prerelease automatically. / 在通过验证的 `main` 提交上创建并推送类似 `v0.1.0-alpha.1` 的标签。工作流会构建四个平台便携包，加入中英文 README 与许可证，生成 `SHA256SUMS.txt`，并自动创建预发布版本。
+Open **Actions → Release → Run workflow** on `main`, enter a version such as `v0.1.0-alpha.1`, and run it. The workflow creates the tag, builds four portable packages, adds both README files and the license, produces `SHA256SUMS.txt`, and creates a prerelease automatically. Pushing an existing `v*` tag remains supported. / 在 `main` 上打开 **Actions → Release → Run workflow**，输入类似 `v0.1.0-alpha.1` 的版本号并运行。工作流会创建标签、构建四个平台便携包、加入中英文 README 与许可证、生成 `SHA256SUMS.txt`，并自动创建预发布版本；同时仍支持推送已有的 `v*` 标签。
 
 Stable tags such as `v1.0.0` create a normal release. Tags containing a suffix such as `-alpha.1`, `-beta.1`, or `-rc.1` create a prerelease. / `v1.0.0` 等稳定标签会创建正式版本；包含 `-alpha.1`、`-beta.1` 或 `-rc.1` 等后缀的标签会创建预发布版本。
 
