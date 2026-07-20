@@ -1,8 +1,7 @@
 //! Bounded parsing of the metadata prefix shared by Unreal Engine GVAS saves.
 
 use crate::container::{
-    open_plz_stream, validate_plz, ContainerHeader, DecodeSummary,
-    DEFAULT_MAX_DECOMPRESSED_SIZE,
+    open_plz_stream, validate_plz, ContainerHeader, DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
 };
 use palmerge_core::{ErrorCode, PalError};
 use std::fs::File;
