@@ -112,6 +112,7 @@ jobs:
             prerelease+=(--prerelease)
           fi
           gh release create "${RELEASE_TAG}" release-assets/* \
+            --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "PalMerge ${RELEASE_TAG}" \
             --generate-notes \
