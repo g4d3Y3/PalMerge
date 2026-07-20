@@ -95,9 +95,21 @@ pub fn parse_header(prefix: &[u8]) -> Result<Option<ContainerHeader>, PalError> 
         kind,
         compression,
         save_type,
-        uncompressed_len: u32::from_le_bytes(prefix[offset..offset + 4].try_into().expect("four bytes")).into(),
-        compressed_len: u32::from_le_bytes(prefix[offset + 4..offset + 8].try_into().expect("four bytes")).into(),
-        payload_offset: if chunk_wrapped { CHUNKED_HEADER_SIZE } else { STANDARD_HEADER_SIZE },
+        uncompressed_len: u32::from_le_bytes(
+            prefix[offset..offset + 4].try_into().expect("four bytes"),
+        )
+        .into(),
+        compressed_len: u32::from_le_bytes(
+            prefix[offset + 4..offset + 8]
+                .try_into()
+                .expect("four bytes"),
+        )
+        .into(),
+        payload_offset: if chunk_wrapped {
+            CHUNKED_HEADER_SIZE
+        } else {
+            STANDARD_HEADER_SIZE
+        },
         chunk_wrapped,
     }))
 }
@@ -235,7 +247,11 @@ mod tests {
 
     fn save(data: &[u8], save_type: u8, chunked: bool) -> (PathBuf, ContainerHeader) {
         let inner = zlib(data);
-        let payload = if save_type == 0x32 { zlib(&inner) } else { inner.clone() };
+        let payload = if save_type == 0x32 {
+            zlib(&inner)
+        } else {
+            inner.clone()
+        };
         let mut bytes = Vec::new();
         if chunked {
             bytes.extend_from_slice(&0_u32.to_le_bytes());
@@ -254,8 +270,14 @@ mod tests {
         bytes.extend_from_slice(b"PlZ");
         bytes.push(save_type);
         bytes.extend_from_slice(&payload);
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let path = std::env::temp_dir().join(format!("palmerge-container-{}-{nonce}.sav", std::process::id()));
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "palmerge-container-{}-{nonce}.sav",
+            std::process::id()
+        ));
         fs::write(&path, bytes).unwrap();
         let header = read_header(&path).unwrap().unwrap();
         (path, header)
