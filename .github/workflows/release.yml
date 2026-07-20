@@ -31,7 +31,7 @@ jobs:
             target: aarch64-apple-darwin
             platform: macos-apple-silicon
             binary: target/aarch64-apple-darwin/release/palmerge
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             platform: macos-intel
             binary: target/x86_64-apple-darwin/release/palmerge
@@ -106,4 +106,3 @@ jobs:
             --generate-notes \
             --notes "Portable, read-only PalMerge build. See README.md or README.zh-CN.md before use. / PalMerge 便携只读版本，使用前请阅读 README.md 或 README.zh-CN.md。" \
             "${prerelease[@]}"
-
