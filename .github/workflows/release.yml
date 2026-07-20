@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag, for example v0.1.0-alpha.1"
+        required: true
+        type: string
   pull_request:
     paths:
       - ".github/workflows/release.yml"
@@ -40,7 +46,7 @@ jobs:
       BINARY: ${{ matrix.binary }}
       PLATFORM: ${{ matrix.platform }}
       TARGET: ${{ matrix.target }}
-      VERSION_LABEL: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
+      VERSION_LABEL: ${{ github.event_name == 'workflow_dispatch' && inputs.version || (github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name) }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -75,7 +81,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: binaries
     runs-on: ubuntu-latest
     permissions:
@@ -94,15 +100,20 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         shell: bash
         run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
           prerelease=()
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
             prerelease+=(--prerelease)
           fi
-          gh release create "${GITHUB_REF_NAME}" release-assets/* \
-            --verify-tag \
-            --title "PalMerge ${GITHUB_REF_NAME}" \
+          gh release create "${RELEASE_TAG}" release-assets/* \
+            --target "${GITHUB_SHA}" \
+            --title "PalMerge ${RELEASE_TAG}" \
             --generate-notes \
             --notes "Portable, read-only PalMerge build. See README.md or README.zh-CN.md before use. / PalMerge 便携只读版本，使用前请阅读 README.md 或 README.zh-CN.md。" \
             "${prerelease[@]}"
