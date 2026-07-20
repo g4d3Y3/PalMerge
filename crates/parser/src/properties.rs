@@ -44,40 +44,50 @@ pub(crate) fn parse_property_inventory(
 
     let mut properties = Vec::new();
     loop {
-        let name = read_fstring(reader, "property name")?;
-        if name == "None" {
-            return Ok(PropertyInventory { properties });
-        }
+        let tag = match read_property_tag(reader, header)? {
+            Some(tag) => tag,
+            None => return Ok(PropertyInventory { properties }),
+        };
         if properties.len() >= MAX_TOP_LEVEL_PROPERTIES {
             return Err(invalid(format!(
                 "top-level property count exceeds limit {MAX_TOP_LEVEL_PROPERTIES}"
             )));
         }
 
-        let property_type = read_fstring(reader, "property type")?;
-        let size = read_u32(reader, "property size")?;
-        let array_index = read_u32(reader, "property array index")?;
-        let metadata = read_metadata(reader, &property_type)?;
-        let property_guid = if (header.engine_version.major, header.engine_version.minor) >= (4, 12)
-        {
-            read_optional_guid(reader, "property GUID")?
-        } else {
-            None
-        };
-        discard_exact(reader, u64::from(size), &name)?;
-        properties.push(PropertyTag {
-            name,
-            property_type,
-            size,
-            array_index,
-            metadata,
-            property_guid,
-        });
+        discard_exact(reader, u64::from(tag.size), &tag.name)?;
+        properties.push(tag);
     }
 }
 
-fn read_metadata(
-    reader: &mut impl Read,
+pub(crate) fn read_property_tag<R: Read + ?Sized>(
+    reader: &mut R,
+    header: &GvasHeader,
+) -> Result<Option<PropertyTag>, PalError> {
+    let name = read_fstring(reader, "property name")?;
+    if name == "None" {
+        return Ok(None);
+    }
+    let property_type = read_fstring(reader, "property type")?;
+    let size = read_u32(reader, "property size")?;
+    let array_index = read_u32(reader, "property array index")?;
+    let metadata = read_metadata(reader, &property_type)?;
+    let property_guid = if (header.engine_version.major, header.engine_version.minor) >= (4, 12) {
+        read_optional_guid(reader, "property GUID")?
+    } else {
+        None
+    };
+    Ok(Some(PropertyTag {
+        name,
+        property_type,
+        size,
+        array_index,
+        metadata,
+        property_guid,
+    }))
+}
+
+fn read_metadata<R: Read + ?Sized>(
+    reader: &mut R,
     property_type: &str,
 ) -> Result<PropertyMetadata, PalError> {
     let mut metadata = PropertyMetadata::default();
@@ -107,6 +117,7 @@ fn read_metadata(
         | "UInt32Property"
         | "UInt64Property"
         | "FloatProperty"
+        | "FixedPoint64Property"
         | "DoubleProperty"
         | "StrProperty"
         | "ObjectProperty"
@@ -124,7 +135,10 @@ fn read_metadata(
     Ok(metadata)
 }
 
-fn read_optional_guid(reader: &mut impl Read, field: &str) -> Result<Option<String>, PalError> {
+fn read_optional_guid<R: Read + ?Sized>(
+    reader: &mut R,
+    field: &str,
+) -> Result<Option<String>, PalError> {
     match read_u8(reader, field)? {
         0 => Ok(None),
         1 => Ok(Some(read_guid(reader, field)?)),
@@ -132,7 +146,7 @@ fn read_optional_guid(reader: &mut impl Read, field: &str) -> Result<Option<Stri
     }
 }
 
-fn read_guid(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
+fn read_guid<R: Read + ?Sized>(reader: &mut R, field: &str) -> Result<String, PalError> {
     let a = read_u32(reader, field)?;
     let b = read_u32(reader, field)?;
     let c = read_u32(reader, field)?;
