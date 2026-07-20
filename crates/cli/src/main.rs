@@ -18,6 +18,13 @@ struct Options {
 
 fn main() -> ExitCode {
     let raw: Vec<String> = env::args().skip(1).collect();
+    if raw
+        .first()
+        .is_some_and(|argument| argument == "--version" || argument == "-V")
+    {
+        println!("{}", version());
+        return ExitCode::SUCCESS;
+    }
     let locale = requested_locale(&raw).unwrap_or_default();
     match parse_options(&raw).and_then(run) {
         Ok(()) => ExitCode::SUCCESS,
@@ -27,6 +34,10 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+fn version() -> String {
+    format!("palmerge {}", env!("CARGO_PKG_VERSION"))
 }
 
 fn requested_locale(args: &[String]) -> Option<Locale> {
@@ -263,5 +274,10 @@ mod tests {
         let options = parse_options(&args).unwrap();
         assert_eq!(options.locale, Locale::SimplifiedChinese);
         assert_eq!(options.output, OutputFormat::Json);
+    }
+
+    #[test]
+    fn version_is_available_without_runtime_dependencies() {
+        assert_eq!(version(), format!("palmerge {}", env!("CARGO_PKG_VERSION")));
     }
 }
