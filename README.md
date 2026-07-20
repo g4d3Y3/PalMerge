@@ -11,6 +11,7 @@ The project direction and acceptance criteria are tracked in [Project Goal #1](h
 - Read-only discovery of `Level.sav`, `LevelMeta.sav`, `LocalData.sav`, `WorldOption.sav`, and direct `.sav` files under `Players/`.
 - Streaming SHA-256 fingerprints without external runtime dependencies.
 - Bounded GVAS metadata parsing for save-game/package versions, engine build and branch, custom-version GUIDs, and the SaveGame class.
+- Fail-closed inventory of legacy top-level Unreal property tags, including type-specific tag metadata, sizes, array indexes, and optional GUIDs.
 - Strict `PlZ` and `CNK` container-header parsing with single- and double-zlib validation.
 - Streaming decompression checks with declared-length validation and a 2 GiB safety limit; decoded saves are not retained in memory.
 - Detection of newer `PlM`/Oodle containers as explicitly unsupported instead of treating them as zlib.
@@ -20,7 +21,7 @@ The project direction and acceptance criteria are tracked in [Project Goal #1](h
 
 ## Not implemented yet
 
-- `PlM`/Oodle decompression and GVAS property-body parsing.
+- `PlM`/Oodle decompression, nested property-value decoding, and Palworld-specific schemas.
 - Domain models, entity indexes, dependency graphs, and referential validation.
 - Migration, merge, repair, GUID rewriting, transactional writing, backup, rollback, or GUI workflows.
 
@@ -43,7 +44,7 @@ palmerge inspect /path/to/world-directory --format json
 palmerge --version
 ```
 
-The command reads, hashes, validates supported zlib containers, and reports bounded GVAS header metadata, but never modifies saves. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
+The command reads, hashes, validates supported zlib containers, and reports bounded GVAS header and top-level property-tag metadata, but never modifies saves. Property values are skipped rather than decoded at this stage. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
 
 ## Build from source
 
@@ -68,7 +69,7 @@ The executable is written to `target/release/palmerge` (`palmerge.exe` on Window
 ## Workspace
 
 - `palmerge-core`: stable errors, localization, fingerprints, and shared primitives.
-- `palmerge-parser`: bounded world discovery, conservative format probing, resource-limited zlib validation, and bounded GVAS metadata parsing.
+- `palmerge-parser`: bounded world discovery, conservative format probing, resource-limited zlib validation, bounded GVAS metadata parsing, and legacy top-level property-tag inventory.
 - `palmerge-cli`: scriptable text and JSON inspection interface.
 
 The core and CLI crates use only the Rust standard library. The parser uses the pure-Rust `flate2` backend for zlib; normal-user binaries remain self-contained and require no external runtime or shared compression library.
