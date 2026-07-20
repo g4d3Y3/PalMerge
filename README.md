@@ -12,6 +12,9 @@ The project direction and acceptance criteria are tracked in [Project Goal #1](h
 - Streaming SHA-256 fingerprints without external runtime dependencies.
 - Bounded GVAS metadata parsing for save-game/package versions, engine build and branch, custom-version GUIDs, and the SaveGame class.
 - Fail-closed inventory of legacy top-level Unreal property tags, including type-specific tag metadata, sizes, array indexes, and optional GUIDs.
+- Experimental read-only Rust APIs for bounded recursive legacy property-value decoding, with depth, node, and collection limits plus explicit Palworld map type hints.
+- An initial deterministic entity index for character instances, guilds, bases, item containers, and character containers, together with cycle-safe dependency traversal and stable validation issue codes.
+- Bounded decoding of guild relationship `RawData`, including embedded group-ID verification and references to players, character instances, bases, and base map objects.
 - Strict `PlZ` and `CNK` container-header parsing with single- and double-zlib validation.
 - Streaming decompression checks with declared-length validation and a 2 GiB safety limit; decoded saves are not retained in memory.
 - Detection of newer `PlM`/Oodle containers as explicitly unsupported instead of treating them as zlib.
@@ -21,8 +24,8 @@ The project direction and acceptance criteria are tracked in [Project Goal #1](h
 
 ## Not implemented yet
 
-- `PlM`/Oodle decompression, nested property-value decoding, and Palworld-specific schemas.
-- Domain models, entity indexes, dependency graphs, and referential validation.
+- `PlM`/Oodle decompression, UE 5.4 complete property tags, and the remaining Palworld custom binary codecs.
+- Complete entity coverage, cross-file player indexing, and dependency-complete validation. The experimental analysis API reports unsupported custom data and unresolved relationships instead of claiming a complete graph.
 - Migration, merge, repair, GUID rewriting, transactional writing, backup, rollback, or GUI workflows.
 
 Do not use the current release as a save merger. Inspection is intentionally read-only.
@@ -44,7 +47,7 @@ palmerge inspect /path/to/world-directory --format json
 palmerge --version
 ```
 
-The command reads, hashes, validates supported zlib containers, and reports bounded GVAS header and top-level property-tag metadata, but never modifies saves. Property values are skipped rather than decoded at this stage. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
+The command reads, hashes, validates supported zlib containers, and reports bounded GVAS header and top-level property-tag metadata, but never modifies saves. The current CLI still skips property values; recursive decoding and dependency analysis are experimental Rust library APIs and are not yet included in CLI output. JSON uses `schema_version: 1`, stable error codes, and untranslated machine fields.
 
 ## Build from source
 
@@ -69,7 +72,7 @@ The executable is written to `target/release/palmerge` (`palmerge.exe` on Window
 ## Workspace
 
 - `palmerge-core`: stable errors, localization, fingerprints, and shared primitives.
-- `palmerge-parser`: bounded world discovery, conservative format probing, resource-limited zlib validation, bounded GVAS metadata parsing, and legacy top-level property-tag inventory.
+- `palmerge-parser`: bounded world discovery, conservative format probing, resource-limited zlib validation, GVAS metadata and legacy property decoding, initial Palworld entity indexing, dependency graphs, and validation primitives.
 - `palmerge-cli`: scriptable text and JSON inspection interface.
 
 The core and CLI crates use only the Rust standard library. The parser uses the pure-Rust `flate2` backend for zlib; normal-user binaries remain self-contained and require no external runtime or shared compression library.

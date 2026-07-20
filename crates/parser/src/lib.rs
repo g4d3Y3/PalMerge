@@ -1,22 +1,38 @@
 //! Read-only discovery and format probing.
 
+mod analysis;
 mod container;
+mod domain;
+mod graph;
 mod gvas;
 mod properties;
+mod raw;
+mod schema;
+mod validation;
+mod values;
 
+pub use analysis::{analyze_decoded, analyze_gvas, SaveAnalysis};
 pub use container::{
     parse_header, read_header, validate_plz, CompressionKind, ContainerHeader, ContainerKind,
     DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
 };
+pub use domain::{
+    EntityId, EntityIndex, EntityKind, EntityRecord, EntityReference, ReferenceConfidence,
+};
+pub use graph::{DependencyEdge, DependencyGraph, DependencyScope};
 pub use gvas::{
-    parse_gvas_header, read_gvas_header, read_gvas_inventory, CustomVersion, EngineVersion,
-    GvasHeader, PackageVersion,
+    parse_gvas_decoded, parse_gvas_header, read_gvas_decoded, read_gvas_header,
+    read_gvas_inventory, CustomVersion, EngineVersion, GvasHeader, PackageVersion,
 };
 use palmerge_core::{fingerprint, ErrorCode, Fingerprint, PalError};
 pub use properties::{PropertyInventory, PropertyMetadata, PropertyTag};
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
+pub use validation::{
+    validate_decoded, validate_index, ValidationCode, ValidationIssue, ValidationSeverity,
+};
+pub use values::{DecodeLimits, DecodedProperty, DecodedValue, MapEntry, OpaqueKind};
 
 const MAX_DISCOVERED_FILES: usize = 10_000;
 

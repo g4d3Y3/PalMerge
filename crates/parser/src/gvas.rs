@@ -4,6 +4,7 @@ use crate::container::{
     open_plz_stream, validate_plz, ContainerHeader, DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
 };
 use crate::properties::{parse_property_inventory, PropertyInventory};
+use crate::values::{decode_properties, DecodeLimits, DecodedProperty};
 use palmerge_core::{ErrorCode, PalError};
 use std::fs::File;
 use std::io::Read;
@@ -81,6 +82,26 @@ pub fn read_gvas_inventory(
     }
 }
 
+pub fn read_gvas_decoded(
+    path: &Path,
+    container: Option<ContainerHeader>,
+    limits: DecodeLimits,
+) -> Result<(GvasHeader, Vec<DecodedProperty>), PalError> {
+    match container {
+        Some(header) => {
+            validate_plz(path, header, DEFAULT_MAX_DECOMPRESSED_SIZE)?;
+            let mut reader = open_plz_stream(path, header)?;
+            parse_gvas_decoded(&mut reader, limits)
+        }
+        None => {
+            let mut file = File::open(path).map_err(|error| {
+                PalError::new(ErrorCode::Io, format!("{}: {error}", path.display()))
+            })?;
+            parse_gvas_decoded(&mut file, limits)
+        }
+    }
+}
+
 pub(crate) fn inspect_plz_gvas(
     path: &Path,
     header: ContainerHeader,
@@ -97,6 +118,15 @@ fn parse_gvas_inventory(
     let header = parse_gvas_header(reader)?;
     let inventory = parse_property_inventory(reader, &header)?;
     Ok((header, inventory))
+}
+
+pub fn parse_gvas_decoded(
+    reader: &mut impl Read,
+    limits: DecodeLimits,
+) -> Result<(GvasHeader, Vec<DecodedProperty>), PalError> {
+    let header = parse_gvas_header(reader)?;
+    let properties = decode_properties(reader, &header, limits)?;
+    Ok((header, properties))
 }
 
 pub fn parse_gvas_header(reader: &mut impl Read) -> Result<GvasHeader, PalError> {

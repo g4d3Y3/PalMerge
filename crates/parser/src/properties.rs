@@ -44,36 +44,46 @@ pub(crate) fn parse_property_inventory(
 
     let mut properties = Vec::new();
     loop {
-        let name = read_fstring(reader, "property name")?;
-        if name == "None" {
-            return Ok(PropertyInventory { properties });
-        }
+        let tag = match read_property_tag(reader, header)? {
+            Some(tag) => tag,
+            None => return Ok(PropertyInventory { properties }),
+        };
         if properties.len() >= MAX_TOP_LEVEL_PROPERTIES {
             return Err(invalid(format!(
                 "top-level property count exceeds limit {MAX_TOP_LEVEL_PROPERTIES}"
             )));
         }
 
-        let property_type = read_fstring(reader, "property type")?;
-        let size = read_u32(reader, "property size")?;
-        let array_index = read_u32(reader, "property array index")?;
-        let metadata = read_metadata(reader, &property_type)?;
-        let property_guid = if (header.engine_version.major, header.engine_version.minor) >= (4, 12)
-        {
-            read_optional_guid(reader, "property GUID")?
-        } else {
-            None
-        };
-        discard_exact(reader, u64::from(size), &name)?;
-        properties.push(PropertyTag {
-            name,
-            property_type,
-            size,
-            array_index,
-            metadata,
-            property_guid,
-        });
+        discard_exact(reader, u64::from(tag.size), &tag.name)?;
+        properties.push(tag);
     }
+}
+
+pub(crate) fn read_property_tag(
+    reader: &mut impl Read,
+    header: &GvasHeader,
+) -> Result<Option<PropertyTag>, PalError> {
+    let name = read_fstring(reader, "property name")?;
+    if name == "None" {
+        return Ok(None);
+    }
+    let property_type = read_fstring(reader, "property type")?;
+    let size = read_u32(reader, "property size")?;
+    let array_index = read_u32(reader, "property array index")?;
+    let metadata = read_metadata(reader, &property_type)?;
+    let property_guid = if (header.engine_version.major, header.engine_version.minor) >= (4, 12) {
+        read_optional_guid(reader, "property GUID")?
+    } else {
+        None
+    };
+    Ok(Some(PropertyTag {
+        name,
+        property_type,
+        size,
+        array_index,
+        metadata,
+        property_guid,
+    }))
 }
 
 fn read_metadata(
@@ -107,6 +117,7 @@ fn read_metadata(
         | "UInt32Property"
         | "UInt64Property"
         | "FloatProperty"
+        | "FixedPoint64Property"
         | "DoubleProperty"
         | "StrProperty"
         | "ObjectProperty"
