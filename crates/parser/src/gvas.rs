@@ -188,7 +188,10 @@ pub fn parse_gvas_header(reader: &mut impl Read) -> Result<GvasHeader, PalError>
     })
 }
 
-pub(crate) fn read_fstring(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
+pub(crate) fn read_fstring<R: Read + ?Sized>(
+    reader: &mut R,
+    field: &str,
+) -> Result<String, PalError> {
     let length = read_i32(reader, field)?;
     if length == 0 {
         return Ok(String::new());
@@ -226,32 +229,32 @@ pub(crate) fn read_fstring(reader: &mut impl Read, field: &str) -> Result<String
     }
 }
 
-fn read_u16(reader: &mut impl Read, field: &str) -> Result<u16, PalError> {
+fn read_u16<R: Read + ?Sized>(reader: &mut R, field: &str) -> Result<u16, PalError> {
     let mut bytes = [0_u8; 2];
     read_exact(reader, &mut bytes, field)?;
     Ok(u16::from_le_bytes(bytes))
 }
 
-pub(crate) fn read_u32(reader: &mut impl Read, field: &str) -> Result<u32, PalError> {
+pub(crate) fn read_u32<R: Read + ?Sized>(reader: &mut R, field: &str) -> Result<u32, PalError> {
     let mut bytes = [0_u8; 4];
     read_exact(reader, &mut bytes, field)?;
     Ok(u32::from_le_bytes(bytes))
 }
 
-fn read_i32(reader: &mut impl Read, field: &str) -> Result<i32, PalError> {
+fn read_i32<R: Read + ?Sized>(reader: &mut R, field: &str) -> Result<i32, PalError> {
     let mut bytes = [0_u8; 4];
     read_exact(reader, &mut bytes, field)?;
     Ok(i32::from_le_bytes(bytes))
 }
 
-pub(crate) fn read_u8(reader: &mut impl Read, field: &str) -> Result<u8, PalError> {
+pub(crate) fn read_u8<R: Read + ?Sized>(reader: &mut R, field: &str) -> Result<u8, PalError> {
     let mut byte = [0_u8; 1];
     read_exact(reader, &mut byte, field)?;
     Ok(byte[0])
 }
 
-pub(crate) fn read_exact(
-    reader: &mut impl Read,
+pub(crate) fn read_exact<R: Read + ?Sized>(
+    reader: &mut R,
     bytes: &mut [u8],
     field: &str,
 ) -> Result<(), PalError> {

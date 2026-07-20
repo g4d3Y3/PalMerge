@@ -81,7 +81,7 @@ pub fn decode_properties(
 }
 
 fn decode_property_list(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     depth: usize,
@@ -117,7 +117,7 @@ fn decode_property_list(
 }
 
 fn decode_tag_value(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     tag: &PropertyTag,
@@ -171,7 +171,7 @@ fn decode_tag_value(
 }
 
 fn decode_struct(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     struct_type: Option<&str>,
@@ -190,7 +190,7 @@ fn decode_struct(
 }
 
 fn decode_array(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     tag: &PropertyTag,
@@ -234,7 +234,7 @@ fn decode_array(
 }
 
 fn decode_set(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     tag: &PropertyTag,
@@ -271,7 +271,7 @@ fn decode_set(
 }
 
 fn decode_map(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     tag: &PropertyTag,
@@ -335,7 +335,7 @@ fn decode_map(
 }
 
 fn decode_typed_value(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     header: &GvasHeader,
     path: &str,
     property_type: &str,
@@ -437,7 +437,7 @@ fn check_depth(depth: usize, budget: &Budget) -> Result<(), PalError> {
 }
 
 fn drain_opaque(
-    reader: &mut impl Read,
+    reader: &mut dyn Read,
     bytes: u32,
     kind: OpaqueKind,
 ) -> Result<DecodedValue, PalError> {
@@ -445,10 +445,7 @@ fn drain_opaque(
     Ok(DecodedValue::Opaque { bytes, kind })
 }
 
-fn drain_opaque_unknown(
-    reader: &mut impl Read,
-    kind: OpaqueKind,
-) -> Result<DecodedValue, PalError> {
+fn drain_opaque_unknown(reader: &mut dyn Read, kind: OpaqueKind) -> Result<DecodedValue, PalError> {
     let bytes = drain(reader)?;
     Ok(DecodedValue::Opaque {
         bytes: u32::try_from(bytes).map_err(|_| invalid("opaque value size overflow"))?,
@@ -456,7 +453,7 @@ fn drain_opaque_unknown(
     })
 }
 
-fn drain(reader: &mut impl Read) -> Result<u64, PalError> {
+fn drain(reader: &mut dyn Read) -> Result<u64, PalError> {
     let mut buffer = [0_u8; 64 * 1024];
     let mut total = 0_u64;
     loop {
@@ -472,7 +469,7 @@ fn drain(reader: &mut impl Read) -> Result<u64, PalError> {
     }
 }
 
-fn read_guid(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
+fn read_guid(reader: &mut dyn Read, field: &str) -> Result<String, PalError> {
     Ok(format_guid(
         read_u32(reader, field)?,
         read_u32(reader, field)?,
@@ -481,35 +478,35 @@ fn read_guid(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
     ))
 }
 
-fn read_i8(reader: &mut impl Read, field: &str) -> Result<i8, PalError> {
+fn read_i8(reader: &mut dyn Read, field: &str) -> Result<i8, PalError> {
     Ok(read_u8(reader, field)? as i8)
 }
 
-fn read_u16(reader: &mut impl Read, field: &str) -> Result<u16, PalError> {
+fn read_u16(reader: &mut dyn Read, field: &str) -> Result<u16, PalError> {
     let mut bytes = [0_u8; 2];
     read_exact(reader, &mut bytes, field)?;
     Ok(u16::from_le_bytes(bytes))
 }
 
-fn read_i16(reader: &mut impl Read, field: &str) -> Result<i16, PalError> {
+fn read_i16(reader: &mut dyn Read, field: &str) -> Result<i16, PalError> {
     let mut bytes = [0_u8; 2];
     read_exact(reader, &mut bytes, field)?;
     Ok(i16::from_le_bytes(bytes))
 }
 
-fn read_i32(reader: &mut impl Read, field: &str) -> Result<i32, PalError> {
+fn read_i32(reader: &mut dyn Read, field: &str) -> Result<i32, PalError> {
     let mut bytes = [0_u8; 4];
     read_exact(reader, &mut bytes, field)?;
     Ok(i32::from_le_bytes(bytes))
 }
 
-fn read_u64(reader: &mut impl Read, field: &str) -> Result<u64, PalError> {
+fn read_u64(reader: &mut dyn Read, field: &str) -> Result<u64, PalError> {
     let mut bytes = [0_u8; 8];
     read_exact(reader, &mut bytes, field)?;
     Ok(u64::from_le_bytes(bytes))
 }
 
-fn read_i64(reader: &mut impl Read, field: &str) -> Result<i64, PalError> {
+fn read_i64(reader: &mut dyn Read, field: &str) -> Result<i64, PalError> {
     let mut bytes = [0_u8; 8];
     read_exact(reader, &mut bytes, field)?;
     Ok(i64::from_le_bytes(bytes))
@@ -632,5 +629,31 @@ mod tests {
             ..DecodeLimits::default()
         };
         assert!(decode_properties(&mut Cursor::new(bytes), &header(), limits).is_err());
+    }
+
+    #[test]
+    fn enforces_nesting_depth_after_erasing_recursive_reader_types() {
+        let mut nested = tag("Leaf", "IntProperty", &[], &1_i32.to_le_bytes());
+        nested.extend_from_slice(&fstring("None"));
+        let mut world = tag(
+            "Nested",
+            "StructProperty",
+            &struct_metadata("NestedData"),
+            &nested,
+        );
+        world.extend_from_slice(&fstring("None"));
+        let mut root = tag(
+            "worldSaveData",
+            "StructProperty",
+            &struct_metadata("PalWorldSaveData"),
+            &world,
+        );
+        root.extend_from_slice(&fstring("None"));
+        let limits = DecodeLimits {
+            max_depth: 1,
+            ..DecodeLimits::default()
+        };
+
+        assert!(decode_properties(&mut Cursor::new(root), &header(), limits).is_err());
     }
 }

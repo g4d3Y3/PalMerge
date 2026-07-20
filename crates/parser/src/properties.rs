@@ -59,8 +59,8 @@ pub(crate) fn parse_property_inventory(
     }
 }
 
-pub(crate) fn read_property_tag(
-    reader: &mut impl Read,
+pub(crate) fn read_property_tag<R: Read + ?Sized>(
+    reader: &mut R,
     header: &GvasHeader,
 ) -> Result<Option<PropertyTag>, PalError> {
     let name = read_fstring(reader, "property name")?;
@@ -86,8 +86,8 @@ pub(crate) fn read_property_tag(
     }))
 }
 
-fn read_metadata(
-    reader: &mut impl Read,
+fn read_metadata<R: Read + ?Sized>(
+    reader: &mut R,
     property_type: &str,
 ) -> Result<PropertyMetadata, PalError> {
     let mut metadata = PropertyMetadata::default();
@@ -135,7 +135,10 @@ fn read_metadata(
     Ok(metadata)
 }
 
-fn read_optional_guid(reader: &mut impl Read, field: &str) -> Result<Option<String>, PalError> {
+fn read_optional_guid<R: Read + ?Sized>(
+    reader: &mut R,
+    field: &str,
+) -> Result<Option<String>, PalError> {
     match read_u8(reader, field)? {
         0 => Ok(None),
         1 => Ok(Some(read_guid(reader, field)?)),
@@ -143,7 +146,7 @@ fn read_optional_guid(reader: &mut impl Read, field: &str) -> Result<Option<Stri
     }
 }
 
-fn read_guid(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
+fn read_guid<R: Read + ?Sized>(reader: &mut R, field: &str) -> Result<String, PalError> {
     let a = read_u32(reader, field)?;
     let b = read_u32(reader, field)?;
     let c = read_u32(reader, field)?;
