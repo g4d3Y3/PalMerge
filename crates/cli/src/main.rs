@@ -217,6 +217,13 @@ fn print_text(locale: Locale, inspections: &[Inspection]) {
                 gvas.save_game_class
             );
         }
+        if let Some(properties) = &inspection.properties {
+            println!(
+                "{}: {}",
+                message(locale, MessageKey::TopLevelProperties),
+                properties.properties.len()
+            );
+        }
     }
 }
 
@@ -296,10 +303,45 @@ fn inspection_json(value: &Inspection) -> String {
             )
         },
     );
+    let properties = value.properties.as_ref().map_or_else(
+        || "null".to_owned(),
+        |inventory| {
+            let entries = inventory
+                .properties
+                .iter()
+                .map(|property| {
+                    let metadata = &property.metadata;
+                    format!(
+                        "{{\"name\":\"{}\",\"type\":\"{}\",\"size\":{},\"array_index\":{},\"property_guid\":{},\"metadata\":{{\"bool_value\":{},\"enum_type\":{},\"inner_type\":{},\"key_type\":{},\"value_type\":{},\"struct_type\":{},\"struct_guid\":{}}}}}",
+                        json_escape(&property.name),
+                        json_escape(&property.property_type),
+                        property.size,
+                        property.array_index,
+                        optional_json_string(property.property_guid.as_deref()),
+                        metadata
+                            .bool_value
+                            .map_or_else(|| "null".to_owned(), |value| value.to_string()),
+                        optional_json_string(metadata.enum_type.as_deref()),
+                        optional_json_string(metadata.inner_type.as_deref()),
+                        optional_json_string(metadata.key_type.as_deref()),
+                        optional_json_string(metadata.value_type.as_deref()),
+                        optional_json_string(metadata.struct_type.as_deref()),
+                        optional_json_string(metadata.struct_guid.as_deref())
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"count\":{},\"entries\":[{}]}}",
+                inventory.properties.len(),
+                entries
+            )
+        },
+    );
     format!(
-        "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\",\"container\":{},\"decoded\":{},\"gvas\":{}}}",
+        "{{\"path\":\"{}\",\"size\":{},\"modified_unix_seconds\":{},\"sha256\":\"{}\",\"format\":\"{}\",\"container\":{},\"decoded\":{},\"gvas\":{},\"properties\":{}}}",
         json_escape(&value.fingerprint.path.to_string_lossy()), value.fingerprint.size, modified,
-        value.fingerprint.sha256, value.format.as_str(), container, decoded, gvas
+        value.fingerprint.sha256, value.format.as_str(), container, decoded, gvas, properties
     )
 }
 
@@ -308,6 +350,13 @@ fn error_json(error: &PalError) -> String {
         "{{\"schema_version\":1,\"code\":\"{}\",\"message\":\"{}\"}}",
         error.code.as_str(),
         json_escape(&error.message)
+    )
+}
+
+fn optional_json_string(value: Option<&str>) -> String {
+    value.map_or_else(
+        || "null".to_owned(),
+        |text| format!("\\\"{}\\\"", json_escape(text)),
     )
 }
 

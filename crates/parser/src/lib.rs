@@ -2,15 +2,18 @@
 
 mod container;
 mod gvas;
+mod properties;
 
 pub use container::{
     parse_header, read_header, validate_plz, CompressionKind, ContainerHeader, ContainerKind,
     DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
 };
 pub use gvas::{
-    parse_gvas_header, read_gvas_header, CustomVersion, EngineVersion, GvasHeader, PackageVersion,
+    parse_gvas_header, read_gvas_header, read_gvas_inventory, CustomVersion, EngineVersion,
+    GvasHeader, PackageVersion,
 };
 use palmerge_core::{fingerprint, ErrorCode, Fingerprint, PalError};
+pub use properties::{PropertyInventory, PropertyMetadata, PropertyTag};
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -44,6 +47,7 @@ pub struct Inspection {
     pub container: Option<ContainerHeader>,
     pub decoded: Option<DecodeSummary>,
     pub gvas: Option<GvasHeader>,
+    pub properties: Option<PropertyInventory>,
 }
 
 /// Finds the known save files in a world directory without following links or
@@ -119,18 +123,24 @@ pub fn inspect(path: &Path) -> Result<Inspection, PalError> {
         .read(&mut magic)
         .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
     let container = read_header(path)?;
-    let (format, decoded, gvas) = if count == magic.len() && &magic == b"GVAS" {
-        (SaveFormat::Gvas, None, Some(read_gvas_header(path, None)?))
+    let (format, decoded, gvas, properties) = if count == magic.len() && &magic == b"GVAS" {
+        let (gvas, properties) = read_gvas_inventory(path, None)?;
+        (SaveFormat::Gvas, None, Some(gvas), Some(properties))
     } else if let Some(header) = container {
         match header.kind {
             ContainerKind::Plz => {
-                let (decoded, gvas) = gvas::inspect_plz_gvas(path, header)?;
-                (SaveFormat::PalworldPlz, Some(decoded), Some(gvas))
+                let (decoded, gvas, properties) = gvas::inspect_plz_gvas(path, header)?;
+                (
+                    SaveFormat::PalworldPlz,
+                    Some(decoded),
+                    Some(gvas),
+                    Some(properties),
+                )
             }
-            ContainerKind::Plm => (SaveFormat::PalworldPlm, None, None),
+            ContainerKind::Plm => (SaveFormat::PalworldPlm, None, None, None),
         }
     } else {
-        (SaveFormat::Unknown, None, None)
+        (SaveFormat::Unknown, None, None, None)
     };
     Ok(Inspection {
         fingerprint: fingerprint(path)?,
@@ -138,6 +148,7 @@ pub fn inspect(path: &Path) -> Result<Inspection, PalError> {
         container,
         decoded,
         gvas,
+        properties,
     })
 }
 
@@ -217,6 +228,7 @@ mod tests {
         bytes.extend_from_slice(&3_u32.to_le_bytes());
         bytes.extend_from_slice(&0_u32.to_le_bytes());
         append_string(&mut bytes, "/Script/Pal.PalWorldSaveGame");
+        append_string(&mut bytes, "None");
         bytes
     }
 

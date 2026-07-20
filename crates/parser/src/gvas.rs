@@ -3,6 +3,7 @@
 use crate::container::{
     open_plz_stream, validate_plz, ContainerHeader, DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
 };
+use crate::properties::{parse_property_inventory, PropertyInventory};
 use palmerge_core::{ErrorCode, PalError};
 use std::fs::File;
 use std::io::Read;
@@ -61,13 +62,41 @@ pub fn read_gvas_header(
     }
 }
 
+pub fn read_gvas_inventory(
+    path: &Path,
+    container: Option<ContainerHeader>,
+) -> Result<(GvasHeader, PropertyInventory), PalError> {
+    match container {
+        Some(header) => {
+            validate_plz(path, header, DEFAULT_MAX_DECOMPRESSED_SIZE)?;
+            let mut reader = open_plz_stream(path, header)?;
+            parse_gvas_inventory(&mut reader)
+        }
+        None => {
+            let mut file = File::open(path).map_err(|error| {
+                PalError::new(ErrorCode::Io, format!("{}: {error}", path.display()))
+            })?;
+            parse_gvas_inventory(&mut file)
+        }
+    }
+}
+
 pub(crate) fn inspect_plz_gvas(
     path: &Path,
     header: ContainerHeader,
-) -> Result<(DecodeSummary, GvasHeader), PalError> {
+) -> Result<(DecodeSummary, GvasHeader, PropertyInventory), PalError> {
     let decoded = validate_plz(path, header, DEFAULT_MAX_DECOMPRESSED_SIZE)?;
     let mut reader = open_plz_stream(path, header)?;
-    Ok((decoded, parse_gvas_header(&mut reader)?))
+    let (gvas, properties) = parse_gvas_inventory(&mut reader)?;
+    Ok((decoded, gvas, properties))
+}
+
+fn parse_gvas_inventory(
+    reader: &mut impl Read,
+) -> Result<(GvasHeader, PropertyInventory), PalError> {
+    let header = parse_gvas_header(reader)?;
+    let inventory = parse_property_inventory(reader, &header)?;
+    Ok((header, inventory))
 }
 
 pub fn parse_gvas_header(reader: &mut impl Read) -> Result<GvasHeader, PalError> {
@@ -129,7 +158,7 @@ pub fn parse_gvas_header(reader: &mut impl Read) -> Result<GvasHeader, PalError>
     })
 }
 
-fn read_fstring(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
+pub(crate) fn read_fstring(reader: &mut impl Read, field: &str) -> Result<String, PalError> {
     let length = read_i32(reader, field)?;
     if length == 0 {
         return Ok(String::new());
@@ -173,7 +202,7 @@ fn read_u16(reader: &mut impl Read, field: &str) -> Result<u16, PalError> {
     Ok(u16::from_le_bytes(bytes))
 }
 
-fn read_u32(reader: &mut impl Read, field: &str) -> Result<u32, PalError> {
+pub(crate) fn read_u32(reader: &mut impl Read, field: &str) -> Result<u32, PalError> {
     let mut bytes = [0_u8; 4];
     read_exact(reader, &mut bytes, field)?;
     Ok(u32::from_le_bytes(bytes))
@@ -185,13 +214,23 @@ fn read_i32(reader: &mut impl Read, field: &str) -> Result<i32, PalError> {
     Ok(i32::from_le_bytes(bytes))
 }
 
-fn read_exact(reader: &mut impl Read, bytes: &mut [u8], field: &str) -> Result<(), PalError> {
+pub(crate) fn read_u8(reader: &mut impl Read, field: &str) -> Result<u8, PalError> {
+    let mut byte = [0_u8; 1];
+    read_exact(reader, &mut byte, field)?;
+    Ok(byte[0])
+}
+
+pub(crate) fn read_exact(
+    reader: &mut impl Read,
+    bytes: &mut [u8],
+    field: &str,
+) -> Result<(), PalError> {
     reader
         .read_exact(bytes)
         .map_err(|error| invalid(format!("could not read {field}: {error}")))
 }
 
-fn format_guid(a: u32, b: u32, c: u32, d: u32) -> String {
+pub(crate) fn format_guid(a: u32, b: u32, c: u32, d: u32) -> String {
     let b = b.to_le_bytes();
     let c = c.to_le_bytes();
     format!(

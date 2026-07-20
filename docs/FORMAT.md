@@ -16,7 +16,9 @@ Validation checks declared sizes, decompression errors, the configured output li
 
 ## GVAS metadata / GVAS 元数据
 
-For raw GVAS and validated `PlZ` payloads, PalMerge parses only the bounded metadata prefix: save-game version, UE4/UE5 package versions, engine version and branch, up to 4,096 custom-version entries, and the SaveGame class string. Strings are limited to 65,536 code units and must be valid, null-terminated FString data. Truncated, oversized, or invalid metadata fails closed. Property-body parsing is not implemented yet. / 对原始 GVAS 和已验证的 `PlZ` 负载，PalMerge 只解析有边界的元数据前缀：存档版本、UE4/UE5 包版本、引擎版本与分支、最多 4,096 个自定义版本条目，以及 SaveGame 类字符串。字符串最多允许 65,536 个代码单元，且必须是有效、以空字符结尾的 FString 数据。截断、超限或无效元数据会被拒绝。属性正文解析尚未实现。
+For raw GVAS and validated `PlZ` payloads, PalMerge parses the bounded metadata prefix: save-game version, UE4/UE5 package versions, engine version and branch, up to 4,096 custom-version entries, and the SaveGame class string. Strings are limited to 65,536 code units and must be valid, null-terminated FString data. Truncated, oversized, or invalid metadata fails closed. / 对原始 GVAS 和已验证的 `PlZ` 负载，PalMerge 会解析有边界的元数据前缀：存档版本、UE4/UE5 包版本、引擎版本与分支、最多 4,096 个自定义版本条目，以及 SaveGame 类字符串。字符串最多允许 65,536 个代码单元，且必须是有效、以空字符结尾的 FString 数据。截断、超限或无效元数据会被拒绝。
+
+PalMerge also inventories legacy (pre-UE 5.4) top-level property tags without retaining their values. It records names, types, declared sizes, array indexes, type-specific tag metadata, and optional property GUIDs. Unknown tag types, malformed GUID flags, truncated values, more than 4,096 top-level properties, and UE 5.4 complete property tags fail closed. Nested values and Palworld-specific schemas are not decoded yet. / PalMerge 还会在不保留属性值的前提下，清点旧版（UE 5.4 之前）顶层属性标签，并记录名称、类型、声明大小、数组索引、类型专用标签元数据和可选属性 GUID。未知标签类型、异常 GUID 标志、截断值、超过 4,096 个顶层属性，以及 UE 5.4 完整属性标签都会被拒绝。嵌套值和 Palworld 专用结构定义尚未解码。
 
 ## Format references / 格式依据
 
