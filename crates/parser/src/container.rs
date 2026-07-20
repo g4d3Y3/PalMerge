@@ -124,6 +124,46 @@ pub fn read_header(path: &Path) -> Result<Option<ContainerHeader>, PalError> {
     parse_header(&prefix[..count])
 }
 
+pub(crate) fn open_plz_stream(
+    path: &Path,
+    header: ContainerHeader,
+) -> Result<Box<dyn Read>, PalError> {
+    if header.kind != ContainerKind::Plz {
+        return Err(PalError::new(
+            ErrorCode::UnknownFormat,
+            "PlM/Oodle decompression is not supported",
+        ));
+    }
+    let mut file = File::open(path)
+        .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
+    let file_len = file
+        .metadata()
+        .map_err(|error| PalError::new(ErrorCode::Io, error.to_string()))?
+        .len();
+    if file_len < header.payload_offset {
+        return Err(invalid("container payload is missing"));
+    }
+    let payload_len = file_len - header.payload_offset;
+    file.seek(SeekFrom::Start(header.payload_offset))
+        .map_err(|error| PalError::new(ErrorCode::Io, error.to_string()))?;
+
+    match header.compression {
+        CompressionKind::SingleZlib => {
+            if payload_len != header.compressed_len {
+                return Err(invalid("compressed length does not match payload"));
+            }
+            Ok(Box::new(ZlibDecoder::new(file.take(payload_len))))
+        }
+        CompressionKind::DoubleZlib => Ok(Box::new(ZlibDecoder::new(ZlibDecoder::new(
+            file.take(payload_len),
+        )))),
+        CompressionKind::Oodle | CompressionKind::Unsupported => Err(PalError::new(
+            ErrorCode::UnknownFormat,
+            format!("unsupported compression type 0x{:02x}", header.save_type),
+        )),
+    }
+}
+
 /// Streams decompression and validation without storing the decoded save in memory.
 pub fn validate_plz(
     path: &Path,
