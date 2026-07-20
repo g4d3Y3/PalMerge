@@ -1,10 +1,14 @@
 //! Read-only discovery and format probing.
 
 mod container;
+mod gvas;
 
 pub use container::{
     parse_header, read_header, validate_plz, CompressionKind, ContainerHeader, ContainerKind,
     DecodeSummary, DEFAULT_MAX_DECOMPRESSED_SIZE,
+};
+pub use gvas::{
+    parse_gvas_header, read_gvas_header, CustomVersion, EngineVersion, GvasHeader, PackageVersion,
 };
 use palmerge_core::{fingerprint, ErrorCode, Fingerprint, PalError};
 use std::fs::{self, File};
@@ -39,6 +43,7 @@ pub struct Inspection {
     pub format: SaveFormat,
     pub container: Option<ContainerHeader>,
     pub decoded: Option<DecodeSummary>,
+    pub gvas: Option<GvasHeader>,
 }
 
 /// Finds the known save files in a world directory without following links or
@@ -114,24 +119,29 @@ pub fn inspect(path: &Path) -> Result<Inspection, PalError> {
         .read(&mut magic)
         .map_err(|error| PalError::new(ErrorCode::Io, format!("{}: {error}", path.display())))?;
     let container = read_header(path)?;
-    let (format, decoded) = if count == magic.len() && &magic == b"GVAS" {
-        (SaveFormat::Gvas, None)
+    let (format, decoded, gvas) = if count == magic.len() && &magic == b"GVAS" {
+        (
+            SaveFormat::Gvas,
+            None,
+            Some(read_gvas_header(path, None)?),
+        )
     } else if let Some(header) = container {
         match header.kind {
-            ContainerKind::Plz => (
-                SaveFormat::PalworldPlz,
-                Some(validate_plz(path, header, DEFAULT_MAX_DECOMPRESSED_SIZE)?),
-            ),
-            ContainerKind::Plm => (SaveFormat::PalworldPlm, None),
+            ContainerKind::Plz => {
+                let (decoded, gvas) = gvas::inspect_plz_gvas(path, header)?;
+                (SaveFormat::PalworldPlz, Some(decoded), Some(gvas))
+            }
+            ContainerKind::Plm => (SaveFormat::PalworldPlm, None, None),
         }
     } else {
-        (SaveFormat::Unknown, None)
+        (SaveFormat::Unknown, None, None)
     };
     Ok(Inspection {
         fingerprint: fingerprint(path)?,
         format,
         container,
         decoded,
+        gvas,
     })
 }
 
@@ -180,14 +190,38 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let path = root.join("Level.sav");
         let mut file = File::create(&path).unwrap();
-        file.write_all(b"GVASpayload").unwrap();
+        let bytes = gvas_fixture();
+        file.write_all(&bytes).unwrap();
         drop(file);
 
         let result = inspect(&path).unwrap();
         assert_eq!(result.format, SaveFormat::Gvas);
         assert!(result.container.is_none());
-        assert_eq!(fs::read(&path).unwrap(), b"GVASpayload");
+        assert_eq!(result.gvas.unwrap().engine_version.major, 5);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    fn gvas_fixture() -> Vec<u8> {
+        fn append_string(bytes: &mut Vec<u8>, value: &str) {
+            bytes.extend_from_slice(&((value.len() + 1) as i32).to_le_bytes());
+            bytes.extend_from_slice(value.as_bytes());
+            bytes.push(0);
+        }
+
+        let mut bytes = b"GVAS".to_vec();
+        bytes.extend_from_slice(&3_u32.to_le_bytes());
+        bytes.extend_from_slice(&522_u32.to_le_bytes());
+        bytes.extend_from_slice(&1009_u32.to_le_bytes());
+        bytes.extend_from_slice(&5_u16.to_le_bytes());
+        bytes.extend_from_slice(&1_u16.to_le_bytes());
+        bytes.extend_from_slice(&1_u16.to_le_bytes());
+        bytes.extend_from_slice(&123_u32.to_le_bytes());
+        append_string(&mut bytes, "++UE5+Release-5.1");
+        bytes.extend_from_slice(&3_u32.to_le_bytes());
+        bytes.extend_from_slice(&0_u32.to_le_bytes());
+        append_string(&mut bytes, "/Script/Pal.PalWorldSaveGame");
+        bytes
     }
 
     #[test]
